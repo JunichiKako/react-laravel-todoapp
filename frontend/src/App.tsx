@@ -1,5 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { todoApi, type Todo } from './api'
+
+type Filter = 'all' | 'active' | 'completed'
 
 function App() {
   const [todos, setTodos] = useState<Todo[]>([])
@@ -8,6 +10,7 @@ function App() {
   const [newTitle, setNewTitle] = useState('')
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editingTitle, setEditingTitle] = useState('')
+  const [filter, setFilter] = useState<Filter>('all')
 
   useEffect(() => {
     todoApi
@@ -17,7 +20,19 @@ function App() {
       .finally(() => setLoading(false))
   }, [])
 
-  const completedCount = todos.filter((t) => t.completed).length
+  const total = todos.length
+  const completed = useMemo(
+    () => todos.filter((t) => t.completed).length,
+    [todos],
+  )
+  const active = total - completed
+  const percent = total === 0 ? 0 : Math.round((completed / total) * 100)
+
+  const filteredTodos = useMemo(() => {
+    if (filter === 'active') return todos.filter((t) => !t.completed)
+    if (filter === 'completed') return todos.filter((t) => t.completed)
+    return todos
+  }, [todos, filter])
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
@@ -74,15 +89,25 @@ function App() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50 text-slate-800 antialiased">
       <main className="mx-auto max-w-2xl px-6 py-16">
-        <header className="mb-8">
+        <header className="mb-6">
           <h1 className="text-4xl font-bold tracking-tight text-slate-900">Todo</h1>
-          <p className="mt-2 text-sm text-slate-500">
-            {todos.length} 件のタスク
-            {completedCount > 0 && (
-              <span className="text-slate-400"> / 完了 {completedCount}</span>
-            )}
-          </p>
         </header>
+
+        {/* プログレスバー */}
+        <section className="mb-6 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="mb-2 flex items-baseline justify-between text-sm">
+            <span className="font-medium text-slate-700">
+              完了 {completed} / {total}
+            </span>
+            <span className="text-xs text-slate-500">{percent}%</span>
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-all duration-500 ease-out"
+              style={{ width: `${percent}%` }}
+            />
+          </div>
+        </section>
 
         {error && (
           <div className="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
@@ -90,7 +115,8 @@ function App() {
           </div>
         )}
 
-        <form onSubmit={handleCreate} className="mb-6 flex gap-2">
+        {/* 追加フォーム */}
+        <form onSubmit={handleCreate} className="mb-4 flex gap-2">
           <input
             type="text"
             value={newTitle}
@@ -107,16 +133,51 @@ function App() {
           </button>
         </form>
 
+        {/* フィルタータブ */}
+        <div className="mb-4 inline-flex rounded-lg border border-slate-200 bg-white p-1 text-sm shadow-sm">
+          {(
+            [
+              { key: 'all', label: '全て', count: total },
+              { key: 'active', label: '未完了', count: active },
+              { key: 'completed', label: '完了', count: completed },
+            ] as { key: Filter; label: string; count: number }[]
+          ).map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setFilter(tab.key)}
+              className={`rounded-md px-3 py-1.5 font-medium transition ${
+                filter === tab.key
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              {tab.label}
+              <span
+                className={`ml-1.5 text-xs ${
+                  filter === tab.key ? 'text-indigo-100' : 'text-slate-400'
+                }`}
+              >
+                {tab.count}
+              </span>
+            </button>
+          ))}
+        </div>
+
         {loading ? (
           <p className="text-center text-sm text-slate-400">読み込み中...</p>
         ) : (
           <ul className="space-y-2">
-            {todos.length === 0 ? (
+            {filteredTodos.length === 0 ? (
               <li className="rounded-lg border border-dashed border-slate-300 bg-white/50 px-4 py-12 text-center text-sm text-slate-500">
-                タスクはまだありません。最初のひとつを追加してみよう。
+                {total === 0
+                  ? 'タスクはまだありません。最初のひとつを追加してみよう。'
+                  : filter === 'active'
+                    ? '未完了のタスクはありません。'
+                    : '完了したタスクはまだありません。'}
               </li>
             ) : (
-              todos.map((todo) => (
+              filteredTodos.map((todo) => (
                 <li
                   key={todo.id}
                   className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm"
