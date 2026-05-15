@@ -1,5 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
-import { todoApi, type Todo } from './api'
+import {
+  createTodo,
+  listTodos,
+  removeTodo,
+  toggleTodo,
+  updateTodo,
+  type Todo,
+} from './api/todos'
 
 type Filter = 'all' | 'active' | 'completed'
 
@@ -13,8 +20,7 @@ function App() {
   const [filter, setFilter] = useState<Filter>('all')
 
   useEffect(() => {
-    todoApi
-      .list()
+    listTodos()
       .then(setTodos)
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false))
@@ -38,7 +44,7 @@ function App() {
     e.preventDefault()
     if (!newTitle.trim()) return
     try {
-      const created = await todoApi.create(newTitle.trim())
+      const created = await createTodo(newTitle.trim())
       setTodos([created, ...todos])
       setNewTitle('')
     } catch (e) {
@@ -48,7 +54,7 @@ function App() {
 
   async function handleToggle(id: number) {
     try {
-      const updated = await todoApi.toggle(id)
+      const updated = await toggleTodo(id)
       setTodos(todos.map((t) => (t.id === id ? updated : t)))
     } catch (e) {
       setError((e as Error).message)
@@ -57,7 +63,7 @@ function App() {
 
   async function handleDelete(id: number) {
     try {
-      await todoApi.remove(id)
+      await removeTodo(id)
       setTodos(todos.filter((t) => t.id !== id))
     } catch (e) {
       setError((e as Error).message)
@@ -78,7 +84,7 @@ function App() {
     e.preventDefault()
     if (editingId === null || !editingTitle.trim()) return
     try {
-      const updated = await todoApi.update(editingId, editingTitle.trim())
+      const updated = await updateTodo(editingId, editingTitle.trim())
       setTodos(todos.map((t) => (t.id === editingId ? updated : t)))
       cancelEdit()
     } catch (e) {
